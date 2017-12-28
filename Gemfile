@@ -170,3 +170,5 @@ gem 'intercom'
 
 gem 'twitter_cldr'
 gem 'memoist'
+
+gem 'geocoder'

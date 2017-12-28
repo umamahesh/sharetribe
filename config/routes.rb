@@ -69,6 +69,9 @@ Rails.application.routes.draw do
   locale_matcher = Regexp.new(locale_regex_string)
   locale_matcher_anchored = Regexp.new("^(#{locale_regex_string})$")
 
+  country_codes = CountryCodes::LIST
+  country_matcher = Regexp.new(country_codes.join("|"))
+
   # Conditional routes for custom landing pages
   get '/:locale/' => 'landing_page#index', as: :landing_page_with_locale, constraints: ->(request) {
     locale_matcher_anchored.match(request.params["locale"]) &&
@@ -91,6 +94,11 @@ Rails.application.routes.draw do
   # Inside this constraits are the routes that are used when request has subdomain other than www
   get '/:locale/' => 'homepage#index', :constraints => { :locale => locale_matcher }, as: :homepage_with_locale
   get '/' => 'homepage#index', as: :homepage_without_locale
+
+  get '/:cc' => 'homepage#index', as: :homepage_without_locale_with_country, constraints: ->(request) {
+    country_codes.include?(request.params["cc"])
+  }
+
   get '/:locale/s', to: redirect('/%{locale}', status: 307), constraints: { locale: locale_matcher }
   get '/s', to: redirect('/', status: 307)
 
@@ -107,7 +115,7 @@ Rails.application.routes.draw do
   devise_for :people, only: :omniauth_callbacks, controllers: { omniauth_callbacks: "sessions" }
 
   # Adds locale to every url right after the root path
-  scope "(/:locale)", :constraints => { :locale => locale_matcher } do
+  scope "(/:cc/:locale)", :constraints => { :locale => locale_matcher, :cc => country_matcher } do
 
     put '/mercury_update' => "mercury_update#update", :as => :mercury_update
 
@@ -489,16 +497,19 @@ Rails.application.routes.draw do
   id_to_username = Proc.new do |params, req|
     username = Person.find(params[:person_id]).try(:username)
     locale = params[:locale] + "/" if params[:locale]
+    cc = params[:cc] + "/" if params[:cc]
     if username
-      "/#{locale}#{username}#{params[:path]}"
+      "/#{cc}/#{locale}#{username}#{params[:path]}"
     else
       "/404"
     end
   end
 
-  get "(/:locale)/people/:person_id(*path)" => redirect(id_to_username), :constraints => { :locale => locale_matcher, :person_id => /[a-zA-Z0-9_-]{22}/ }
+  get "(/:cc/:locale)/people/:person_id(*path)" => redirect(id_to_username), 
+    :constraints => { :cc => country_matcher, :locale => locale_matcher, :person_id => /[a-zA-Z0-9_-]{22}/ }
 
-  get "(/:locale)/:person_id(*path)" => redirect(id_to_username), :constraints => { :locale => locale_matcher, :person_id => /[a-zA-Z0-9_-]{22}/ }
+  get "(/:cc/:locale)/:person_id(*path)" => redirect(id_to_username), 
+    :constraints => { :cc => country_matcher, :locale => locale_matcher, :person_id => /[a-zA-Z0-9_-]{22}/ }
 
   #keep this matcher last
   #catches all non matched routes, shows 404 and logs more reasonably than the alternative RoutingError + stacktrace

@@ -5,7 +5,12 @@ class ApplicationController < ActionController::Base
   module DefaultURLOptions
     # Adds locale to all links
     def default_url_options
-      { :locale => I18n.locale }
+      country_code = request.location.country_code.downcase
+      if country_code.blank?
+        { :locale => I18n.locale, :cc => "in" }
+      else
+        { :locale => I18n.locale, :cc => country_code }
+      end
     end
   end
 
@@ -16,7 +21,8 @@ class ApplicationController < ActionController::Base
   protect_from_forgery
   layout 'application'
 
-  before_action :check_http_auth,
+  before_action :redirect_to_country_code,
+    :check_http_auth,
     :check_auth_token,
     :fetch_community,
     :fetch_community_plan_expiration_status,
@@ -45,6 +51,16 @@ class ApplicationController < ActionController::Base
   helper_method :root, :logged_in?, :current_user?
 
   attr_reader :current_user
+
+  def redirect_to_country_code
+    if params[:cc].blank?
+      location     = request.location.city
+      country      = request.location.country
+      country_code = request.location.country_code.downcase
+      puts "==========country===#{country}===country_code========#{country_code}"
+      redirect_to url_for(params.to_unsafe_hash.symbolize_keys.merge(only_path: true, cc: country_code)), :status => :moved_permanently
+    end
+  end
 
   def redirect_removed_locale
     if params[:locale] && Rails.application.config.REMOVED_LOCALES.include?(params[:locale])

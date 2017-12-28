@@ -36,8 +36,11 @@ module IntercomHelper
       domain_regexp = /[^.]*\.([^.]*|..\...|...\...)$/
 
       match = domain_regexp.match(host_with_port)
-
-      ".#{match[0].split(":")[0]}"
+      if !match.blank?
+        return ".#{match[0].split(":")[0]}"
+       else
+        return "localhost"
+      end
     end
 
     def self.intercom_shutdown(session, cookies, host_with_port)
